@@ -20,6 +20,13 @@ import com.google.inject.Module;
 /**
  * A JUnit class runner for Guice based applications.
  * 
+ * A test class can control the injection in multiple ways:
+ * <ol>
+ * <li>implement {@link Module}</li>
+ * <li>use the {@link GuiceModules} annotation on the class</li>
+ * <li>use the {@link GuiceModules} annotation on a single method</li>
+ * </ol>
+ * 
  * @author Fabio Strozzi
  */
 public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
@@ -31,12 +38,7 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
     public @interface GuiceModules {
         Class<?>[] value();
     }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.junit.runners.BlockJUnit4ClassRunner#createTest()
-     */
+    
     @Override
     public Object createTest() throws Exception {
         Object obj = super.createTest();

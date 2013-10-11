@@ -7,8 +7,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import org.junit.internal.runners.statements.Fail;
 import org.junit.runners.BlockJUnit4ClassRunner;
+import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
+import org.junit.runners.model.Statement;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -22,7 +25,7 @@ import com.google.inject.Module;
 public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
     private Injector injector;
 
-    @Target(ElementType.TYPE)
+    @Target({ElementType.TYPE, ElementType.METHOD})
     @Retention(RetentionPolicy.RUNTIME)
     @Inherited
     public @interface GuiceModules {
@@ -47,6 +50,22 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
         return obj;
     }
 
+    @Override
+    protected Statement methodInvoker(FrameworkMethod method, Object test) {
+        // If the specific method has a module annotation, pull that in as well.
+        GuiceModules annotation = method.getAnnotation(GuiceModules.class);
+        if (annotation != null) {
+            try {
+                Module[] modules = createModules(annotation.value());
+                injector.createChildInjector(modules).injectMembers(test);
+            } catch (Throwable e) {
+                return new Fail(e);
+            }
+        }
+
+        return super.methodInvoker(method, test);
+    }
+
     /**
      * Instances a new JUnit runner.
      * 
@@ -57,7 +76,8 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
     public GuiceJUnitRunner(Class<?> klass) throws InitializationError {
         super(klass);
         Class<?>[] classes = getModulesFor(klass);
-        injector = createInjectorFor(classes);
+        
+        injector = Guice.createInjector(createModules(classes));
     }
 
     /**
@@ -65,7 +85,7 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
      * @return
      * @throws InitializationError
      */
-    private Injector createInjectorFor(Class<?>[] classes) throws InitializationError {
+    private Module[] createModules(Class<?>[] classes) throws InitializationError {
         Module[] modules = new Module[classes.length];
         for (int i = 0; i < classes.length; i++) {
             try {
@@ -76,9 +96,10 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
                 throw new InitializationError(e);
             }
         }
-        return Guice.createInjector(modules);
-    }
 
+        return modules;
+    }
+    
     /**
      * Gets the Guice modules for the given test class.
      * 

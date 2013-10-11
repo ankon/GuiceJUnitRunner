@@ -37,7 +37,13 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
     @Override
     public Object createTest() throws Exception {
         Object obj = super.createTest();
-        injector.injectMembers(obj);
+        
+        Injector thisInjector = injector;
+        if (obj instanceof Module) {
+            thisInjector = thisInjector.createChildInjector((Module) obj);
+        }
+        thisInjector.injectMembers(obj);
+        
         return obj;
     }
 
@@ -80,15 +86,16 @@ public class GuiceJUnitRunner extends BlockJUnit4ClassRunner {
      *            The test class
      * @return The array of Guice {@link Module} modules used to initialize the
      *         injector for the given test.
-     * @throws InitializationError
      */
-    private Class<?>[] getModulesFor(Class<?> klass) throws InitializationError {
+    private Class<?>[] getModulesFor(Class<?> klass) {
+        // The annotation might be missing, that's fine. It saves having to think about whether to use
+        // the @RunWith or not. 
         GuiceModules annotation = klass.getAnnotation(GuiceModules.class);
-        if (annotation == null)
-            throw new InitializationError(
-                    "Missing @GuiceModules annotation for unit test '" + klass.getName()
-                            + "'");
-        return annotation.value();
+        if (annotation != null) {
+            return annotation.value(); 
+        }
+
+        return new Class<?>[0];
     }
 
 }
